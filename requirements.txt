@@ -1,0 +1,4 @@
+python-telegram-bot==12.6.1
+requests
+Pillow
+pymongo
