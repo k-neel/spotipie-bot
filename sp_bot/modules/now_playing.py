@@ -3,10 +3,10 @@ import requests
 from telegram import Message, Chat, Update, Bot, User, ChatAction, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import CommandHandler, CallbackContext, ConversationHandler, run_async
 
-from sp_bot import dispatcher, CLIENT_ID, CLIENT_SECRET
-from sp_bot.modules.misc.request_spotify import SpotifyUser
+from sp_bot import dispatcher
 from sp_bot.modules.misc.cook_image import drawImage
-from sp_bot import SESSION
+from sp_bot.modules.db import DATABASE
+from sp_bot.modules.misc.request_spotify import SPOTIFY
 
 REG_MSG = 'You need to connect your Spotify account first. Contact me in pm and use /register command.'
 USR_NAME_MSG = 'You need to add a username to start using the bot. Contact me in pm and use /name command.'
@@ -24,35 +24,31 @@ def nowPlaying(update: Update, context: CallbackContext) -> None:
 
     try:
         tg_id = str(update.message.from_user.id)
-        db = SESSION["spotipie"]
-        cursor = db["users"]
-        query = {'tg_id': tg_id}
-        is_user = cursor.find_one(query)
+        is_user = DATABASE.fetchData(tg_id)
         if is_user == None:
             button = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Contact in pm', url=BOT_URL.format(context.bot.username))]])
             update.effective_message.reply_text(REG_MSG, reply_markup=button)
-            SESSION.close()
+
             return ConversationHandler.END
         elif is_user["username"] == 'User':
             button = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Contact in pm', url=BOT_URL.format(context.bot.username))]])
             update.effective_message.reply_text(
                 USR_NAME_MSG, reply_markup=button)
-            SESSION.close()
+
             return ConversationHandler.END
         elif is_user["token"] == '00000':
             button = InlineKeyboardMarkup(
                 [[InlineKeyboardButton(text='Contact in pm', url=BOT_URL.format(context.bot.username))]])
             update.effective_message.reply_text(
                 TOKEN_ERR_MSG, reply_markup=button)
-            SESSION.close()
+
             return ConversationHandler.END
         else:
             token = is_user["token"]
-            user = SpotifyUser(token, CLIENT_ID, CLIENT_SECRET)
-            r = user.getCurrentyPlayingSong()
-            SESSION.close()
+            r = SPOTIFY.getCurrentyPlayingSong(token)
+
     except Exception as ex:
         print(ex)
         return

@@ -1,25 +1,29 @@
+import re
 import importlib
+from bson.objectid import ObjectId
 
 from telegram import Message, Chat, Update, Bot, User
 from telegram import ParseMode, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import CommandHandler, Filters, MessageHandler, CallbackQueryHandler, CallbackContext
+from telegram.ext import CommandHandler, Filters, MessageHandler, CallbackQueryHandler, CallbackContext, ConversationHandler
 from telegram.ext.dispatcher import run_async, DispatcherHandlerStop, Dispatcher
 from telegram.utils.helpers import escape_markdown
 
-from sp_bot import dispatcher, updater, LOGGER, TOKEN, CLIENT_ID, CLIENT_SECRET, OWNER
 from sp_bot.modules import ALL_MODULES
-
+from sp_bot import dispatcher, updater, LOGGER, TOKEN
+from sp_bot.modules.misc.request_spotify import SPOTIFY
+from sp_bot.modules.db import DATABASE
 
 START_TEXT = '''
 Hi {},
 
 Follow these steps to start using the bot -
 1. Use /register to connect your spotify account with this bot.
-2. Open the provided link, after you see a successful message come back here &
-3. then use /name to set your username.
+2. Open the provided link, give access to the bot & you will be redirected to bot's telegram link.
+3. When you open that link you will be redirected back to telegram, click start.
+4. After you see a 'successful' message use /name to set a display name (this will be displayed on the song status).
 
-thats it! you can then share your song status using /now
-or using the inline query @spotipiebot
+thats it! you can then share your song status using -
+/now or using the inline query @spotipiebot.
 
 use /help to get the list of commands.
 '''
@@ -54,7 +58,7 @@ def start(update: Update, context: CallbackContext):
     if update.effective_chat.type == update.effective_chat.PRIVATE:
         first_name = update.effective_user.first_name
         text = update.effective_message.text
-        if len(text) <= 7:
+        if len(text) <= 10:
             update.effective_message.reply_text(
                 START_TEXT.format(first_name), parse_mode=ParseMode.MARKDOWN)
         elif text.endswith('register'):
@@ -75,13 +79,46 @@ def start(update: Update, context: CallbackContext):
             update.message.reply_text(
                 "You're not listening to anything on Spotify at the moment.")
         else:
-            update.effective_message.reply_text(
-                START_TEXT.format(first_name), parse_mode=ParseMode.MARKDOWN)
+            _id = text[7:]
+            try:
+                codeObject = DATABASE.fetchCode(ObjectId(_id))
+                _ = DATABASE.deleteCode(ObjectId(_id))
+            except Exception as ex:
+                update.message.reply_text(
+                    "Please use /register command to initiate the login process.")
+                LOGGER.exception(ex)
+                return ConversationHandler.END
+
+            if codeObject is None:
+                update.message.reply_text(
+                    "Please use /register command to initiate the login process.")
+            else:
+                try:
+                    tg_id = str(update.effective_user.id)
+                    is_user = DATABASE.fetchData(tg_id)
+                    if is_user != None:
+                        update.message.reply_text(
+                            "You are already registered. If the bot is not working /unregister and /register again.")
+                        return ConversationHandler.END
+                    authcode = codeObject["authCode"]
+                    refreshToken = SPOTIFY.getAccessToken(authcode)
+                    if refreshToken == 'error':
+                        update.message.reply_text(
+                            "Unable to authenticate. Please try again using /register. If you are having issues using the bot contact in support chat (check bot info)")
+                        return ConversationHandler.END
+                    user = DATABASE.addUser(tg_id, refreshToken)
+                    update.message.reply_text(
+                        "Account successfully linked. Now use /name to set a display name then use /now to use the bot.")
+                except Exception as ex:
+                    update.message.reply_text("Database Error")
+                    LOGGER.exception(ex)
+                    return ConversationHandler.END
 
         update.effective_message.delete()
-        return
+        return ConversationHandler.END
     else:
         update.effective_message.reply_text("Hmm?")
+        return ConversationHandler.END
 
 
 # /help command

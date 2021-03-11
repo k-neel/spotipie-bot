@@ -4,20 +4,17 @@ from uuid import uuid4
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultCachedPhoto
 from telegram.ext import CommandHandler, CallbackContext, ConversationHandler, InlineQueryHandler
 
-from sp_bot import dispatcher, CLIENT_ID, CLIENT_SECRET, TEMP_CHANNEL
-from sp_bot.modules.misc.request_spotify import SpotifyUser
+from sp_bot import dispatcher, TEMP_CHANNEL
 from sp_bot.modules.misc.cook_image import drawImage
-from sp_bot import SESSION
+from sp_bot.modules.db import DATABASE
+from sp_bot.modules.misc.request_spotify import SPOTIFY
 
 
 def inlineNowPlaying(update: Update, context: CallbackContext):
     'inline implementation of nowPlaying() function along with exception handeling for new users'
     try:
         tg_id = str(update.inline_query.from_user.id)
-        db = SESSION["spotipie"]
-        cursor = db["users"]
-        query = {'tg_id': tg_id}
-        is_user = cursor.find_one(query)
+        is_user = DATABASE.fetchData(tg_id)
         if is_user == None:
             update.inline_query.answer(
                 [], switch_pm_text="You need to register first.", switch_pm_parameter='register', cache_time=0)
@@ -32,13 +29,10 @@ def inlineNowPlaying(update: Update, context: CallbackContext):
             return ConversationHandler.END
         else:
             token = is_user["token"]
-            user = SpotifyUser(token, CLIENT_ID, CLIENT_SECRET)
-            r = user.getCurrentyPlayingSong()
+            r = SPOTIFY.getCurrentyPlayingSong(token)
     except Exception as ex:
         print(ex)
         return
-    finally:
-        SESSION.close()
 
     try:
         pfp_url = context.bot.getUserProfilePhotos(

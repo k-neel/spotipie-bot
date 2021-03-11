@@ -16,6 +16,10 @@ def truncate(text, font, limit):
         return(text.strip())
 
 
+def checkUnicode(text):
+    return text == str(text.encode('utf-8'))[2:-1]
+
+
 def drawImage(res, username, pfp):
     songname = res['item']['name']
     albumname = res['item']['album']['name']
@@ -42,45 +46,39 @@ def drawImage(res, username, pfp):
 
     # profile pic
     profile_pic = Image.open(BytesIO(pfp.content))
-    profile_pic.thumbnail((48, 48), Image.ANTIALIAS)
-    canvas.paste(profile_pic, (527, 25))
+    profile_pic.thumbnail((52, 52), Image.ANTIALIAS)
+    canvas.paste(profile_pic, (523, 25))
+
+    # set font sizes
+    open_sans = ImageFont.truetype(Fonts.OPEN_SANS, 23)
+    # open_bold = ImageFont.truetype(Fonts.OPEN_BOLD, 23)
+    poppins = ImageFont.truetype(Fonts.POPPINS, 25)
+    arial = ImageFont.truetype(Fonts.ARIAL, 25)
+    arial23 = ImageFont.truetype(Fonts.ARIAL, 23)
 
     # assign fonts
-    namefont = ImageFont.truetype(Fonts.POPPINS, 26)
-
-    if not songname == str(songname.encode('utf-8'))[2:-1]:
-        songfont = ImageFont.truetype(Fonts.ARIAL, 26)
-    else:
-        songfont = namefont
-
-    if not artists == str(artists.encode('utf-8'))[2:-1]:
-        artistfont = ImageFont.truetype(Fonts.ARIAL, 26)
-    else:
-        artistfont = ImageFont.truetype(Fonts.OPEN_SANS, 24)
-
-    if not albumname == str(albumname.encode('utf-8'))[2:-1]:
-        albumfont = ImageFont.truetype(Fonts.ARIAL, 21)
-    else:
-        albumfont = ImageFont.truetype(Fonts.OPEN_SANS, 21)
+    songfont = poppins if checkUnicode(songname) else arial
+    artistfont = open_sans if checkUnicode(artists) else arial23
+    albumfont = open_sans if checkUnicode(albumname) else arial23
 
     # draw text on canvas
     white = '#ffffff'
-    draw.text((248, 25), truncate(username, songfont, 250),
-              fill=white, font=namefont)
-    draw.text((248, 57), "is listening to...",
-              fill=white, font=artistfont)
-    draw.text((248, 105), truncate(songname, songfont, 315),
+    draw.text((248, 18), truncate(username, poppins, 250),
+              fill=white, font=poppins)
+    draw.text((248, 53), "is listening to",
+              fill=white, font=open_sans)
+    draw.text((248, 115), truncate(songname, songfont, 315),
               fill=white, font=songfont)
-    draw.text((248, 140), f'by {truncate(artists, artistfont, 285)}',
+    draw.text((248, 150), truncate(artists, artistfont, 315),
               fill=white, font=artistfont)
-    draw.text((248, 175), truncate(albumname, albumfont, 315),
+    draw.text((248, 180), truncate(albumname, albumfont, 315),
               fill=white, font=albumfont)
 
     # draw progress bar on canvas
-    draw.rectangle([(578, 219), (248, 220)],
+    draw.rectangle([(578, 222), (248, 224)],
                    fill='#404040')
-    draw.rectangle([(248 + (currtime / totaltime * 330), 219),
-                    (248, 220)], fill='#B3B3B3')
+    draw.rectangle([(248 + (currtime / totaltime * 330), 222),
+                    (248, 224)], fill='#B3B3B3')
 
     # return canvas
     image = BytesIO()

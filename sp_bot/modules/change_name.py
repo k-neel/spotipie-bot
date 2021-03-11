@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, ConversationHandler, Filters, MessageHandler
 
 from sp_bot import dispatcher
-from sp_bot import SESSION
+from sp_bot.modules.db import DATABASE
 
 
 PM_MSG = 'Contact me in pm to change your username.'
@@ -30,30 +30,23 @@ def setUsername(update: Update, context: CallbackContext) -> None:
     text = update.effective_message.text.strip()
     if len(text) > 15:
         update.message.reply_text(
-            "Invalid username. Try again using /username ")
+            "Invalid username. Try again using /name ")
         return ConversationHandler.END
     elif text.startswith('/'):
         update.message.reply_text(
-            "Invalid username. Try again using /username ")
+            "Invalid username. Try again using /name ")
         return ConversationHandler.END
     else:
         try:
-            db = SESSION["spotipie"]
-            cursor = db["users"]
             tg_id = str(update.message.from_user.id)
-            query = {'tg_id': tg_id}
-            is_user = cursor.find_one(query)
+            is_user = DATABASE.fetchData(tg_id)
 
             if is_user == None:
                 update.message.reply_text(REG_MSG)
-                SESSION.close()
                 return ConversationHandler.END
             else:
-                query = {"tg_id": tg_id}
-                newvalues = {"$set": {"username": text}}
-                cursor.update_one(query, newvalues)
+                DATABASE.updateData(tg_id, text)
                 update.message.reply_text(f"Username updated to {text}")
-                SESSION.close()
                 return ConversationHandler.END
 
         except Exception as ex:
